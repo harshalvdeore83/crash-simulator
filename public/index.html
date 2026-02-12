@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Multiplayer Crash Simulator</title>
+  <script src="/socket.io/socket.io.js"></script>
+
+  <style>
+    body {
+      background: #0f172a;
+      color: white;
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 20px;
+    }
+
+    h1 {
+      margin-bottom: 10px;
+    }
+
+    .multiplier {
+      font-size: 70px;
+      margin: 20px 0;
+      color: #22c55e;
+    }
+
+    .crash {
+      color: #ef4444;
+    }
+
+    .panel {
+      background: #1e293b;
+      padding: 15px;
+      margin: 10px auto;
+      width: 95%;
+      max-width: 600px;
+      border-radius: 10px;
+    }
+
+    input {
+      padding: 8px;
+      font-size: 16px;
+      width: 100px;
+    }
+
+    button {
+      padding: 10px 15px;
+      font-size: 16px;
+      margin: 5px;
+      cursor: pointer;
+      border-radius: 6px;
+      border: none;
+    }
+
+    .bet-btn {
+      background: #3b82f6;
+      color: white;
+    }
+
+    .cash-btn {
+      background: #f97316;
+      color: white;
+    }
+
+    table {
+      width: 100%;
+      margin-top: 10px;
+      border-collapse: collapse;
+    }
+
+    td {
+      padding: 6px;
+      border-bottom: 1px solid #334155;
+    }
+
+    .fair {
+      font-size: 12px;
+      word-wrap: break-word;
+      opacity: 0.8;
+    }
+
+    a {
+      color: #22c55e;
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>Provably Fair Multiplayer Crash</h1>
+
+<div id="multiplier" class="multiplier">1.00x</div>
+
+<div class="panel">
+  Bet:
+  <input id="bet" type="number" value="50">
+  <button class="bet-btn" onclick="placeBet()">Place Bet</button>
+  <button class="cash-btn" onclick="cashout()">Cash Out</button>
+</div>
+
+<div class="panel">
+  <h3>Players</h3>
+  <table id="players"></table>
+</div>
+
+<div class="panel fair">
+  <div>Commitment: <span id="commitment">Waiting...</span></div>
+  <div>Server Seed: <span id="serverSeed">Hidden</span></div>
+  <div>Client Seed: public-demo-seed</div>
+  <div>Nonce: <span id="nonce">-</span></div>
+  <br>
+  <a href="/verifier.html" target="_blank">
+    Open Provably Fair Verifier
+  </a>
+</div>
+
+<script>
+const socket = io();
+let currentMultiplier = 1;
+
+function placeBet() {
+  const amount = Number(document.getElementById("bet").value);
+  socket.emit("bet", amount);
+}
+
+function cashout() {
+  socket.emit("cashout", currentMultiplier);
+}
+
+socket.on("round_start", data => {
+  document.getElementById("multiplier").innerText = "1.00x";
+  document.getElementById("multiplier").classList.remove("crash");
+
+  document.getElementById("commitment").innerText = data.commitment;
+  document.getElementById("serverSeed").innerText = "Hidden";
+  document.getElementById("nonce").innerText = data.round;
+});
+
+socket.on("tick", value => {
+  currentMultiplier = Number(value);
+  document.getElementById("multiplier").innerText = value + "x";
+});
+
+socket.on("round_crash", data => {
+  const el = document.getElementById("multiplier");
+  el.innerText = data.crash + "x CRASH";
+  el.classList.add("crash");
+
+  document.getElementById("serverSeed").innerText = data.serverSeed;
+});
+
+socket.on("crash", value => {
+  const el = document.getElementById("multiplier");
+  el.innerText = "CRASH @ " + value + "x";
+  el.classList.add("crash");
+});
+
+socket.on("players", data => {
+  const table = document.getElementById("players");
+  table.innerHTML = "";
+
+  for (let id in data) {
+    const p = data[id];
+    table.innerHTML += `
+      <tr>
+        <td>${p.name}</td>
+        <td>${p.balance.toFixed(2)}</td>
+      </tr>
+    `;
+  }
+});
+</script>
+
+</body>
+</html>
