@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Provably Fair Verifier</title>
+  <style>
+    body {
+      background: #0f172a;
+      color: white;
+      font-family: Arial;
+      text-align: center;
+      padding: 30px;
+    }
+
+    .box {
+      background: #1e293b;
+      padding: 20px;
+      border-radius: 10px;
+      width: 90%;
+      margin: auto;
+    }
+
+    input {
+      width: 90%;
+      padding: 8px;
+      margin: 5px;
+      font-size: 14px;
+    }
+
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      margin-top: 10px;
+    }
+
+    .result {
+      margin-top: 20px;
+      font-size: 22px;
+      color: #22c55e;
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>Provably Fair Crash Verifier</h1>
+
+<div class="box">
+  <div>Server Seed:</div>
+  <input id="serverSeed">
+
+  <div>Client Seed:</div>
+  <input id="clientSeed">
+
+  <div>Nonce:</div>
+  <input id="nonce" type="number">
+
+  <button onclick="verify()">Verify</button>
+
+  <div class="result" id="result"></div>
+</div>
+
+<script>
+async function sha256(message) {
+  const msgBuffer = new TextEncoder().encode(message);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", msgBuffer);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map(b => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function hmac(key, message) {
+  const enc = new TextEncoder();
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(key),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+
+  const signature = await crypto.subtle.sign(
+    "HMAC",
+    cryptoKey,
+    enc.encode(message)
+  );
+
+  return Array.from(new Uint8Array(signature))
+    .map(b => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function verify() {
+  const serverSeed = document.getElementById("serverSeed").value;
+  const clientSeed = document.getElementById("clientSeed").value;
+  const nonce = document.getElementById("nonce").value;
+
+  const hash = await hmac(serverSeed, clientSeed + ":" + nonce);
+
+  const hex = hash.substring(0, 13);
+  const int = parseInt(hex, 16);
+
+  const crash = Math.max(1, (100 / (1 - int / Math.pow(2, 52)))) / 100;
+
+  document.getElementById("result").innerText =
+    "Verified crash multiplier: " + crash.toFixed(2) + "x";
+}
+</script>
+
+</body>
+</html>
